@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Local backups and logs
+*.bak
+*.bak-*
+*.log
+
+# Editors
+.vscode/
+.idea/
