@@ -1,0 +1,9 @@
+# The bundle layer: this patch is what installs the plugin. `dsh plugin add`
+# appends the package to a profile's `dsh.profile.bundles`, and the row below
+# then mounts the package exactly like the shipped client plugins mount.
+#
+# A package without `dsh.bundle` still installs, but only as a plain
+# dependency: `dsh plugin` warns and activates no layer.
+- insert:
+    - id: ui-peak-hour
+      name: '@mateobarbato/dsh-client-ui-peak-hour'

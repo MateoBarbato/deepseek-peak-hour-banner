@@ -27,7 +27,7 @@ globalThis.window = {
 };
 // eslint-disable-next-line no-eval -- the bundle is a classic script by contract
 eval(source);
-assert.equal(registration.id, "dsh-client-ui-peak-hour", "bundle id must match the package name");
+assert.equal(registration.id, "@mateobarbato/dsh-client-ui-peak-hour", "bundle id must match the package name");
 assert.equal(typeof registration.factory, "function", "bundle must register a factory");
 
 const bundle = registration.factory((specifier) => {

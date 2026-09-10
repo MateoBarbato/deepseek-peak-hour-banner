@@ -28,47 +28,50 @@ Si DeepSeek cambia el horario, se edita `PEAK_WINDOWS_UTC` en [`lib/client.js`](
 
 ## Instalación
 
-La raíz del repositorio **es** el paquete, y su bundle de navegador va commiteado: no hay paso de build.
+La raíz del repositorio **es** el paquete, se declara a sí mismo como `dsh.bundle` y su bundle de navegador va commiteado: no hay paso de build ni permiso de build que otorgar.
 
 ```sh
 git clone https://github.com/MateoBarbato/deepseek-peak-hour-banner.git
-cd deepseek-peak-hour-banner
-
-PKG="$HOME/.dsh/profiles/web/node_modules/dsh-client-ui-peak-hour"
-mkdir -p "$PKG/lib"
-cp package.json "$PKG/"
-cp lib/index.js lib/client.js "$PKG/lib/"
+dsh plugin --profile web add ./deepseek-peak-hour-banner
 ```
 
-Después se monta la fila en el patch del perfil (`~/.dsh/profiles/web/cordis.patch.yml`):
+`dsh plugin` reenvía a pnpm dentro del directorio del perfil, que linkea el checkout y agrega el paquete a `dsh.profile.bundles`. El patch del bundle ([`cordis.patch.yml`](cordis.patch.yml)) inserta después la fila del plugin, así que no hace falta nada más. Como la instalación es un link a tu checkout, las ediciones posteriores del repositorio se toman al guardar: el poll de client-HMR del host recarga el bundle del navegador en menos de un segundo.
 
-```yaml
-- insert:
-    - id: ui-peak-hour
-      name: dsh-client-ui-peak-hour
+El mismo comando acepta las otras formas de distribución, ninguna de las cuales pide permiso de build:
+
+```sh
+dsh plugin --profile web add @mateobarbato/dsh-client-ui-peak-hour        # registry
+dsh plugin --profile web add ./deepseek-peak-hour-banner-1.0.0.tgz        # pnpm pack
+dsh plugin --profile web add github:MateoBarbato/deepseek-peak-hour-banner
 ```
 
-Refrescá la página del GUI. Con `patchReload: live` el host recompone el árbol apenas el YAML es válido; el navegador igual necesita el refresco para recibir la nueva fila del grafo de arranque.
+Verificá la capa sin arrancar y después reiniciá el GUI (una capa de bundle se compone al arrancar; solo el patch del perfil recarga en caliente):
+
+```sh
+dsh --profile web --dump-config   # muestra una capa "# == @mateobarbato/dsh-client-ui-peak-hour"
+```
 
 ## Desinstalar
 
-1. Quitar la fila `ui-peak-hour` de `~/.dsh/profiles/web/cordis.patch.yml` (dejar el archivo en `[]`).
-2. `rm -rf ~/.dsh/profiles/web/node_modules/dsh-client-ui-peak-hour`
-3. Refrescar la página.
+```sh
+dsh plugin --profile web remove @mateobarbato/dsh-client-ui-peak-hour
+```
 
 ## Cómo funciona
 
 | Archivo | Rol |
 | --- | --- |
-| [`package.json`](package.json) | Declara `dsh.client.platform: web` y el export `./client` que descubre `dsh-client-modules`. |
+| [`package.json`](package.json) | Declara `dsh.bundle` (la capa instalable), `dsh.client.platform: web` y el export `./client` que descubre `dsh-client-modules`. |
+| [`cordis.patch.yml`](cordis.patch.yml) | La capa del bundle: la fila `insert` que monta el plugin en un perfil. |
 | [`lib/index.js`](lib/index.js) | Mitad host: `apply()` vacío, solo para que la fila monte en el Loader. |
 | [`lib/client.js`](lib/client.js) | Mitad navegador: script clásico que registra una fábrica perezosa en `window.__ModuleLoader__`. |
 | [`test/schedule.test.mjs`](test/schedule.test.mjs) | Prueba del horario: bordes de franja, hueco viernes→lunes y escaneo minuto a minuto. |
 | [`test/render.test.mjs`](test/render.test.mjs) | Prueba de render: los dos asientos renderizados con React real y reloj congelado, uno por estado. |
 
-Tres contratos hacen que esto sea un plugin y no un fork:
+Cuatro contratos hacen que esto sea un plugin y no un fork:
 
-- **Lado host** — `package.json` declara `dsh.client` con `platform: "web"` y exporta `./client`, así que la mitad host de client-modules sirve el bundle en `/plugins/dsh-client-ui-peak-hour/client.js` y lo pone en `window.__DSH_BOOT__`.
+- **Lado bundle** — `package.json` declara `dsh.bundle.patch`, que responde "¿qué aporta este paquete?" con una capa de patch. Eso es lo que hace que `dsh plugin add` agregue el paquete a `dsh.profile.bundles` en lugar de instalarlo como una dependencia inerte.
+- **Lado host** — `package.json` declara `dsh.client` con `platform: "web"` y exporta `./client`, así que la mitad host de client-modules sirve el bundle en `/plugins/@mateobarbato/dsh-client-ui-peak-hour/client.js` y lo pone en `window.__DSH_BOOT__`.
 - **Lado navegador** — el bundle registra una fábrica (`factory(require) → exports`) cuyos exports son un plugin Cordis normal (`apply` + `inject`). `react` es palabra semilla de la tabla de módulos, así que no hace falta `dsh.client.external`, y el cuerpo de la fábrica corre al materializarse, no al cargar el script.
 - **Geometría de cada asiento** — la tarjeta copia la caja del dock del GoalBar que viene con el harness (side clearance más cuatro dock insets), así que su ancho máximo resuelve a `--dsh-chat-content-width` y queda alineada con la tarjeta del compositor y la fila de acciones del mensaje, en vez de ocupar todo el panel. La pastilla del pie copia en cambio la fila de `StatsPills`: mismo ancho de columna, mismo centrado, mismo `--dsw-alias-label-tertiary` y misma escala de 13px, así que se lee como un stat más y no como un segundo cartel.
 
@@ -83,11 +86,15 @@ npm install    # react + react-dom, solo para la prueba de render
 npm test       # lógica del horario + los dos asientos renderizados en ambos estados
 ```
 
-La mitad navegador no tiene build: `lib/client.js` va commiteado tal cual. Después de editarlo, volvé a copiar `package.json` y `lib/` al perfil (ver Instalación); el poll de client-HMR del host toma los bytes nuevos en menos de un segundo, y recargar la página es el plan B.
+La mitad navegador no tiene build: `lib/client.js` va commiteado tal cual. Con una instalación linkeada las ediciones se toman al guardar: el poll de client-HMR del host recarga el bundle del navegador en menos de un segundo, y recargar la página es el plan B. Solo un cambio en [`cordis.patch.yml`](cordis.patch.yml) necesita reinicio, porque las capas de bundle se componen al arrancar.
+
+## Publicación
+
+El paquete está listo para `npm publish`: el nombre está scopeado a su autor, `files` incluye `lib/`, el patch y la documentación, y no hay salida de build que generar (o `pnpm pack` si preferís repartir un tarball).
 
 ## Estado
 
-Verificado en `dsh 0.1.5-rc.1` (perfil web): la lógica del horario y los dos asientos están cubiertos por los tests, y el paquete resuelve y compone en la lista raíz del perfil a través del motor real de patches de Cordis. No hay test end-to-end en navegador.
+Verificado en `dsh 0.1.5-rc.1` (perfil web): la lógica del horario y los dos asientos están cubiertos por los tests, y el paquete compone en la lista de entradas de un perfil como capa de bundle a través del motor real de patches de Cordis. No hay test end-to-end en navegador.
 
 ## Licencia
 

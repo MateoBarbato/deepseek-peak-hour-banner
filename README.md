@@ -28,47 +28,50 @@ If DeepSeek ever changes the schedule, edit `PEAK_WINDOWS_UTC` in [`lib/client.j
 
 ## Install
 
-The repository root **is** the plugin package, and its browser bundle is committed — there is no build step.
+The repository root **is** the plugin package, it declares itself a `dsh.bundle`, and its browser bundle is committed — so there is no build step and no build permission to grant.
 
 ```sh
 git clone https://github.com/MateoBarbato/deepseek-peak-hour-banner.git
-cd deepseek-peak-hour-banner
-
-PKG="$HOME/.dsh/profiles/web/node_modules/dsh-client-ui-peak-hour"
-mkdir -p "$PKG/lib"
-cp package.json "$PKG/"
-cp lib/index.js lib/client.js "$PKG/lib/"
+dsh plugin --profile web add ./deepseek-peak-hour-banner
 ```
 
-Then mount the row in your profile patch (`~/.dsh/profiles/web/cordis.patch.yml`):
+`dsh plugin` forwards to pnpm in the profile directory, which links the checkout and appends the package to `dsh.profile.bundles`. The bundle patch ([`cordis.patch.yml`](cordis.patch.yml)) then inserts the plugin row, so nothing else is needed. Because the install is a link to your checkout, later edits to this repository are picked up on save — the host's client-HMR poll reloads the browser bundle within a second.
 
-```yaml
-- insert:
-    - id: ui-peak-hour
-      name: dsh-client-ui-peak-hour
+The same command accepts the other distribution forms, none of which need a build permission:
+
+```sh
+dsh plugin --profile web add @mateobarbato/dsh-client-ui-peak-hour        # registry
+dsh plugin --profile web add ./deepseek-peak-hour-banner-1.0.0.tgz        # pnpm pack
+dsh plugin --profile web add github:MateoBarbato/deepseek-peak-hour-banner
 ```
 
-Reload the GUI page. With `patchReload: live` the host recomposes the tree as soon as the YAML is valid; the browser still needs a refresh to receive the new row of the boot graph.
+Verify the layer without booting, then restart the GUI (a bundle layer is composed at boot; only the profile patch hot-reloads):
+
+```sh
+dsh --profile web --dump-config   # shows a "# == @mateobarbato/dsh-client-ui-peak-hour" layer
+```
 
 ## Uninstall
 
-1. Remove the `ui-peak-hour` row from `~/.dsh/profiles/web/cordis.patch.yml` (leave the file as `[]`).
-2. `rm -rf ~/.dsh/profiles/web/node_modules/dsh-client-ui-peak-hour`
-3. Reload the page.
+```sh
+dsh plugin --profile web remove @mateobarbato/dsh-client-ui-peak-hour
+```
 
 ## How it works
 
 | File | Role |
 | --- | --- |
-| [`package.json`](package.json) | Declares `dsh.client.platform: web` and the `./client` export that `dsh-client-modules` discovers. |
+| [`package.json`](package.json) | Declares `dsh.bundle` (the installable layer), `dsh.client.platform: web`, and the `./client` export that `dsh-client-modules` discovers. |
+| [`cordis.patch.yml`](cordis.patch.yml) | The bundle layer: the `insert` row that mounts the plugin in a profile. |
 | [`lib/index.js`](lib/index.js) | Host half: an empty `apply()`, present only so the row mounts in the host Loader tree. |
 | [`lib/client.js`](lib/client.js) | Browser half: a classic script registering one lazy factory on `window.__ModuleLoader__`. |
 | [`test/schedule.test.mjs`](test/schedule.test.mjs) | Schedule test: window edges, the Friday→Monday gap, and a minute-by-minute scan. |
 | [`test/render.test.mjs`](test/render.test.mjs) | Render test: both seats server-rendered with real React under a frozen clock, one per state. |
 
-Three contracts make this a plugin rather than a fork:
+Four contracts make this a plugin rather than a fork:
 
-- **Host side** — `package.json` declares `dsh.client` with `platform: "web"` and exports `./client`, so the client-modules host half serves the bundle at `/plugins/dsh-client-ui-peak-hour/client.js` and puts it in `window.__DSH_BOOT__`.
+- **Bundle side** — `package.json` declares `dsh.bundle.patch`, which answers "what does this package contribute?" with a patch layer. That is what makes `dsh plugin add` append the package to a profile's `dsh.profile.bundles` instead of installing it as an inert dependency.
+- **Host side** — `package.json` declares `dsh.client` with `platform: "web"` and exports `./client`, so the client-modules host half serves the bundle at `/plugins/@mateobarbato/dsh-client-ui-peak-hour/client.js` and puts it in `window.__DSH_BOOT__`.
 - **Browser side** — the bundle registers a factory (`factory(require) → exports`) whose exports are an ordinary Cordis plugin (`apply` + `inject`). `react` is a platform seed word, so no `dsh.client.external` entry is needed, and the factory body runs at materialization rather than at script load.
 - **Seat geometry** — the card copies the shipped GoalBar dock box (side clearance plus four dock insets), so its max width resolves to `--dsh-chat-content-width` and it lines up with the composer card and the message action row instead of spanning the pane. The footer pill copies the `StatsPills` row instead: same column width, same centering, same `--dsw-alias-label-tertiary` colour and 13px scale, so it reads as one more stat rather than a second banner.
 
@@ -83,11 +86,15 @@ npm install    # react + react-dom, used only by the render test
 npm test       # schedule logic + both seats rendered in both states
 ```
 
-The browser half has no build step: `lib/client.js` is committed as-is. After editing it, re-copy `package.json` and `lib/` into the profile (see Install); the host's client-HMR poll picks the new bytes up within a second, and a page reload is the fallback.
+The browser half has no build step: `lib/client.js` is committed as-is. A linked install picks edits up on save — the host's client-HMR poll reloads the browser bundle within a second, and a page reload is the fallback. Only a change to [`cordis.patch.yml`](cordis.patch.yml) needs a restart, because bundle layers are composed at boot.
+
+## Publishing
+
+The package is ready for `npm publish`: the name is scoped to its author, `files` ships `lib/`, the patch and the docs, and there is no build output to produce (or `pnpm pack` if you would rather hand out a tarball).
 
 ## Status
 
-Verified on `dsh 0.1.5-rc.1` (web profile): the schedule logic and both seats are covered by the test suite, and the package resolves and composes into the profile's root entry list through the real Cordis patch engine. There is no end-to-end browser test.
+Verified on `dsh 0.1.5-rc.1` (web profile): the schedule logic and both seats are covered by the test suite, and the package composes into a profile's entry list as a bundle layer through the real Cordis patch engine. There is no end-to-end browser test.
 
 ## License
 
