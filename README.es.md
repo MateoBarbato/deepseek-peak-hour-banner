@@ -1,15 +1,15 @@
 # deepseek-peak-hour-banner
 
-Plugin del GUI web de [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) que muestra un cartel sobre el compositor mientras DeepSeek está facturando tarifas de **hora pico (PEAK)**.
+Plugin del GUI web de [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) que mantiene a la vista las tarifas de **hora pico (PEAK)** de DeepSeek, en dos asientos sobre un mismo reloj:
 
-La franja vive en el slot `conversation.input.dock` —la pila de contexto sobre el compositor, junto a Todo / Goal / Queue— y cambia de estado sola en el siguiente límite UTC.
-
-| Estado | Aspecto | Texto |
+| Estado | Asiento | Aspecto |
 | --- | --- | --- |
-| Hora pico | Tarjeta ámbar con borde de aviso | `⚡ HORA PICO · tarifas al doble · Termina en 1 h 12 min · 04:00 UTC / 01:00 local` |
-| Fuera de pico | Línea gris discreta | `✓ Fuera de hora pico · tarifa reducida · Próxima hora pico en 52 min · 01:00 UTC / 22:00 local` |
+| Hora pico | `conversation.input.dock` — la franja de contexto sobre el compositor, junto a Todo / Goal / Queue | Tarjeta ámbar: `⚡ HORA PICO · tarifas al doble · Termina en 1 h 12 min · 04:00 UTC / 01:00 local` |
+| Fuera de pico | `conversation.composer.dock` — el pie del compositor, al lado de la fila `StatsPills` que ya trae el harness | Pastilla discreta: `✓ Fuera de hora pico · próxima 22:00 local (en 1 h 12 min)` |
 
-El texto viene en español; se define con los literales de `PeakHourDock` en [`lib/client.js`](lib/client.js).
+Nunca se renderizan los dos a la vez, y cada uno cambia de estado solo en el siguiente límite UTC: la tarjeta aparece sobre el compositor exactamente mientras el proveedor cobra tarifa pico, y el resto del tiempo el horario espera discreto en el pie.
+
+Los textos son literales en [`lib/client.js`](lib/client.js) y vienen en español.
 
 [English](README.md) | Español
 
@@ -64,25 +64,30 @@ Refrescá la página del GUI. Con `patchReload: live` el host recompone el árbo
 | [`lib/index.js`](lib/index.js) | Mitad host: `apply()` vacío, solo para que la fila monte en el Loader. |
 | [`lib/client.js`](lib/client.js) | Mitad navegador: script clásico que registra una fábrica perezosa en `window.__ModuleLoader__`. |
 | [`test/schedule.test.mjs`](test/schedule.test.mjs) | Prueba del horario: bordes de franja, hueco viernes→lunes y escaneo minuto a minuto. |
+| [`test/render.test.mjs`](test/render.test.mjs) | Prueba de render: los dos asientos renderizados con React real y reloj congelado, uno por estado. |
 
-Dos contratos hacen que esto sea un plugin y no un fork:
+Tres contratos hacen que esto sea un plugin y no un fork:
 
 - **Lado host** — `package.json` declara `dsh.client` con `platform: "web"` y exporta `./client`, así que la mitad host de client-modules sirve el bundle en `/plugins/dsh-client-ui-peak-hour/client.js` y lo pone en `window.__DSH_BOOT__`.
 - **Lado navegador** — el bundle registra una fábrica (`factory(require) → exports`) cuyos exports son un plugin Cordis normal (`apply` + `inject`). `react` es palabra semilla de la tabla de módulos, así que no hace falta `dsh.client.external`, y el cuerpo de la fábrica corre al materializarse, no al cargar el script.
-- **Geometría del dock** — la franja copia la caja del dock del GoalBar que viene con el harness (side clearance más cuatro dock insets), así que su ancho máximo resuelve a `--dsh-chat-content-width` y queda alineada con la tarjeta del compositor y la fila de acciones del mensaje, en vez de ocupar todo el panel. Esa geometría vive en la constante `DOCK_BOX`; la superficie, el borde y la escala tipográfica salen de `--dsw-specific-tip`, `--dsw-alias-border-l1` y la escala de label del dock.
+- **Geometría de cada asiento** — la tarjeta copia la caja del dock del GoalBar que viene con el harness (side clearance más cuatro dock insets), así que su ancho máximo resuelve a `--dsh-chat-content-width` y queda alineada con la tarjeta del compositor y la fila de acciones del mensaje, en vez de ocupar todo el panel. La pastilla del pie copia en cambio la fila de `StatsPills`: mismo ancho de columna, mismo centrado, mismo `--dsw-alias-label-tertiary` y misma escala de 13px, así que se lee como un stat más y no como un segundo cartel.
+
+### Por qué la pastilla no está dentro de `StatsPills`
+
+`StatsPills` renderiza su elemento `root` dentro de `@deepseek-ai/dsh-client-ui-chat` y no expone ningún slot adentro, así que un plugin no puede agregarle un hijo a esa fila: el slot que esa fila ocupa es `conversation.composer.dock`. Ocuparlo pone la pastilla en la misma zona y el mismo bloque del pie, justo después de los stats; por eso el asiento copia la geometría de esa fila en lugar de anidarse en ella.
 
 ## Desarrollo
 
 ```sh
-node test/schedule.test.mjs   # lógica del horario
-node --check lib/client.js    # sintaxis del bundle
+npm install    # react + react-dom, solo para la prueba de render
+npm test       # lógica del horario + los dos asientos renderizados en ambos estados
 ```
 
-Después de editar, volvé a copiar `package.json` y `lib/` al perfil (ver Instalación) y refrescá la página. Hay que reinstalar porque la copia del perfil es un directorio real, no un symlink.
+La mitad navegador no tiene build: `lib/client.js` va commiteado tal cual. Después de editarlo, volvé a copiar `package.json` y `lib/` al perfil (ver Instalación); el poll de client-HMR del host toma los bytes nuevos en menos de un segundo, y recargar la página es el plan B.
 
 ## Estado
 
-Verificado en `dsh 0.1.5-rc.1` (perfil web): la lógica del horario está cubierta por los tests, y el paquete resuelve y compone en la lista raíz del perfil a través del motor real de patches de Cordis. El render dentro del GUI no tiene test automático.
+Verificado en `dsh 0.1.5-rc.1` (perfil web): la lógica del horario y los dos asientos están cubiertos por los tests, y el paquete resuelve y compone en la lista raíz del perfil a través del motor real de patches de Cordis. No hay test end-to-end en navegador.
 
 ## Licencia
 

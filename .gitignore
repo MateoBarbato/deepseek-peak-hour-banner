@@ -3,6 +3,10 @@
 
 # Dependencies
 node_modules/
+.npm-cache/
+
+# Test output
+package-lock.json
 
 # Local backups and logs
 *.bak

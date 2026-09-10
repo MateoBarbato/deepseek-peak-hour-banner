@@ -1,15 +1,15 @@
 # deepseek-peak-hour-banner
 
-A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web-GUI plugin that shows a banner above the composer while DeepSeek is billing **peak-hour** rates.
+A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web-GUI plugin that keeps DeepSeek's **peak-hour** rates in sight, in two seats over one clock:
 
-The strip lives in the `conversation.input.dock` slot — the context stack above the composer, next to Todo / Goal / Queue — and flips state on its own at the next UTC boundary.
-
-| State | Look | Text |
+| State | Seat | Look |
 | --- | --- | --- |
-| Peak | Amber card with a warning border | `⚡ HORA PICO · tarifas al doble · Termina en 1 h 12 min · 04:00 UTC / 01:00 local` |
-| Off-peak | Muted grey line | `✓ Fuera de hora pico · tarifa reducida · Próxima hora pico en 52 min · 01:00 UTC / 22:00 local` |
+| Peak | `conversation.input.dock` — the context strip above the composer, next to Todo / Goal / Queue | Amber card: `⚡ HORA PICO · tarifas al doble · Termina en 1 h 12 min · 04:00 UTC / 01:00 local` |
+| Off-peak | `conversation.composer.dock` — the composer footer, beside the shipped `StatsPills` row | Muted pill: `✓ Fuera de hora pico · próxima 22:00 local (en 1 h 12 min)` |
 
-The strip text ships in Spanish. It is set by the string literals in `PeakHourDock` in [`lib/client.js`](lib/client.js) — edit them to localize.
+Only one seat renders at a time, and each flips on its own at the next UTC boundary: the card sits above the composer exactly while the provider bills peak rates, and the schedule waits quietly in the footer the rest of the time.
+
+Both strings are plain literals in [`lib/client.js`](lib/client.js) and ship in Spanish; edit them to localize.
 
 English | [Español](README.es.md)
 
@@ -64,25 +64,30 @@ Reload the GUI page. With `patchReload: live` the host recomposes the tree as so
 | [`lib/index.js`](lib/index.js) | Host half: an empty `apply()`, present only so the row mounts in the host Loader tree. |
 | [`lib/client.js`](lib/client.js) | Browser half: a classic script registering one lazy factory on `window.__ModuleLoader__`. |
 | [`test/schedule.test.mjs`](test/schedule.test.mjs) | Schedule test: window edges, the Friday→Monday gap, and a minute-by-minute scan. |
+| [`test/render.test.mjs`](test/render.test.mjs) | Render test: both seats server-rendered with real React under a frozen clock, one per state. |
 
-Two contracts make this a plugin rather than a fork:
+Three contracts make this a plugin rather than a fork:
 
 - **Host side** — `package.json` declares `dsh.client` with `platform: "web"` and exports `./client`, so the client-modules host half serves the bundle at `/plugins/dsh-client-ui-peak-hour/client.js` and puts it in `window.__DSH_BOOT__`.
 - **Browser side** — the bundle registers a factory (`factory(require) → exports`) whose exports are an ordinary Cordis plugin (`apply` + `inject`). `react` is a platform seed word, so no `dsh.client.external` entry is needed, and the factory body runs at materialization rather than at script load.
-- **Dock geometry** — the strip copies the shipped GoalBar dock box (side clearance plus four dock insets), so its max width resolves to `--dsh-chat-content-width` and it lines up with the composer card and the message action row instead of spanning the pane. That geometry lives in the `DOCK_BOX` constant; the surface, border and type scale come from `--dsw-specific-tip`, `--dsw-alias-border-l1` and the dock label scale.
+- **Seat geometry** — the card copies the shipped GoalBar dock box (side clearance plus four dock insets), so its max width resolves to `--dsh-chat-content-width` and it lines up with the composer card and the message action row instead of spanning the pane. The footer pill copies the `StatsPills` row instead: same column width, same centering, same `--dsw-alias-label-tertiary` colour and 13px scale, so it reads as one more stat rather than a second banner.
+
+### Why the pill is not inside `StatsPills`
+
+`StatsPills` renders a `root` element in `@deepseek-ai/dsh-client-ui-chat` and exposes no slot inside it, so a plugin cannot add a child to that row — `conversation.composer.dock` is the slot that row occupies. Occupying it puts the pill in the same footer area and block, right after the stats, which is why the seat copies that row's geometry rather than nesting in it.
 
 ## Development
 
 ```sh
-node test/schedule.test.mjs   # schedule logic
-node --check lib/client.js    # bundle syntax
+npm install    # react + react-dom, used only by the render test
+npm test       # schedule logic + both seats rendered in both states
 ```
 
-After editing, re-copy `package.json` and `lib/` into the profile (see Install) and reload the page. Reinstalling is required because the installed copy is a real directory, not a symlink.
+The browser half has no build step: `lib/client.js` is committed as-is. After editing it, re-copy `package.json` and `lib/` into the profile (see Install); the host's client-HMR poll picks the new bytes up within a second, and a page reload is the fallback.
 
 ## Status
 
-Verified on `dsh 0.1.5-rc.1` (web profile): the schedule logic is covered by the test suite, and the package resolves and composes into the profile's root entry list through the real Cordis patch engine. Rendering inside the GUI has no automated test.
+Verified on `dsh 0.1.5-rc.1` (web profile): the schedule logic and both seats are covered by the test suite, and the package resolves and composes into the profile's root entry list through the real Cordis patch engine. There is no end-to-end browser test.
 
 ## License
 
