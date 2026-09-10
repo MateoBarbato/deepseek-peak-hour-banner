@@ -69,6 +69,7 @@ Two contracts make this a plugin rather than a fork:
 
 - **Host side** — `package.json` declares `dsh.client` with `platform: "web"` and exports `./client`, so the client-modules host half serves the bundle at `/plugins/dsh-client-ui-peak-hour/client.js` and puts it in `window.__DSH_BOOT__`.
 - **Browser side** — the bundle registers a factory (`factory(require) → exports`) whose exports are an ordinary Cordis plugin (`apply` + `inject`). `react` is a platform seed word, so no `dsh.client.external` entry is needed, and the factory body runs at materialization rather than at script load.
+- **Dock geometry** — the strip copies the shipped GoalBar dock box (side clearance plus four dock insets), so its max width resolves to `--dsh-chat-content-width` and it lines up with the composer card and the message action row instead of spanning the pane. That geometry lives in the `DOCK_BOX` constant; the surface, border and type scale come from `--dsw-specific-tip`, `--dsw-alias-border-l1` and the dock label scale.
 
 ## Development
 

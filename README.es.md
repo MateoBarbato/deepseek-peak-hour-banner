@@ -69,6 +69,7 @@ Dos contratos hacen que esto sea un plugin y no un fork:
 
 - **Lado host** — `package.json` declara `dsh.client` con `platform: "web"` y exporta `./client`, así que la mitad host de client-modules sirve el bundle en `/plugins/dsh-client-ui-peak-hour/client.js` y lo pone en `window.__DSH_BOOT__`.
 - **Lado navegador** — el bundle registra una fábrica (`factory(require) → exports`) cuyos exports son un plugin Cordis normal (`apply` + `inject`). `react` es palabra semilla de la tabla de módulos, así que no hace falta `dsh.client.external`, y el cuerpo de la fábrica corre al materializarse, no al cargar el script.
+- **Geometría del dock** — la franja copia la caja del dock del GoalBar que viene con el harness (side clearance más cuatro dock insets), así que su ancho máximo resuelve a `--dsh-chat-content-width` y queda alineada con la tarjeta del compositor y la fila de acciones del mensaje, en vez de ocupar todo el panel. Esa geometría vive en la constante `DOCK_BOX`; la superficie, el borde y la escala tipográfica salen de `--dsw-specific-tip`, `--dsw-alias-border-l1` y la escala de label del dock.
 
 ## Desarrollo
 
