@@ -19,7 +19,9 @@ De la página oficial de precios ([api-docs.deepseek.com/quick_start/pricing](ht
 
 Las franjas se evalúan siempre en UTC, porque es lo que factura el proveedor; la hora local solo se muestra, nunca decide.
 
-Si DeepSeek cambia el horario, se edita `PEAK_WINDOWS_UTC` en [`lib/client.js`](lib/client.js) (minutos desde medianoche UTC) y se reinstala.
+La misma página en chino enuncia la regla en **hora de Beijing** — 北京时间周一至周五 9:00–12:00、14:00–18:00 — que son los mismos instantes (Beijing es UTC+8, sin horario de verano). Las dos redacciones también coinciden en el día de la semana para estas franjas, porque sumarle ocho horas a un rango de 01:00–10:00 UTC nunca cruza la medianoche. [`test/rule.test.mjs`](test/rule.test.mjs) parsea **las dos** frases y verifica que coincidan entre sí y con el bundle, minuto a minuto durante un año.
+
+Si DeepSeek cambia el horario, se edita `PEAK_WINDOWS_UTC` en [`lib/client.js`](lib/client.js) (minutos desde medianoche UTC), se actualiza la regla citada en [`test/rule.test.mjs`](test/rule.test.mjs) y se reinstala.
 
 ## Requisitos
 
@@ -66,6 +68,7 @@ dsh plugin --profile web remove @mateobarbato/dsh-client-ui-peak-hour
 | [`lib/index.js`](lib/index.js) | Mitad host: `apply()` vacío, solo para que la fila monte en el Loader. |
 | [`lib/client.js`](lib/client.js) | Mitad navegador: script clásico que registra una fábrica perezosa en `window.__ModuleLoader__`. |
 | [`test/schedule.test.mjs`](test/schedule.test.mjs) | Prueba del horario: bordes de franja, hueco viernes→lunes y escaneo minuto a minuto. |
+| [`test/rule.test.mjs`](test/rule.test.mjs) | Conformidad con la regla: las dos redacciones oficiales parseadas y comparadas contra el bundle minuto a minuto durante un año. |
 | [`test/render.test.mjs`](test/render.test.mjs) | Prueba de render: los dos asientos renderizados con React real y reloj congelado, uno por estado. |
 
 Cuatro contratos hacen que esto sea un plugin y no un fork:
@@ -83,7 +86,7 @@ Cuatro contratos hacen que esto sea un plugin y no un fork:
 
 ```sh
 npm install    # react + react-dom, solo para la prueba de render
-npm test       # lógica del horario + los dos asientos renderizados en ambos estados
+npm test       # conformidad con la regla + horario + los dos asientos en ambos estados
 ```
 
 La mitad navegador no tiene build: `lib/client.js` va commiteado tal cual. Con una instalación linkeada las ediciones se toman al guardar: el poll de client-HMR del host recarga el bundle del navegador en menos de un segundo, y recargar la página es el plan B. Solo un cambio en [`cordis.patch.yml`](cordis.patch.yml) necesita reinicio, porque las capas de bundle se componen al arrancar.

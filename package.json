@@ -30,7 +30,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node test/schedule.test.mjs && node test/render.test.mjs"
+    "test": "node test/schedule.test.mjs && node test/rule.test.mjs && node test/render.test.mjs"
   },
   "devDependencies": {
     "react": "^18.3.1",

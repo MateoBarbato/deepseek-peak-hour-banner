@@ -104,5 +104,17 @@ check(
 );
 check(cardPeak.includes("--dsw-alias-state-warn-primary"), "the card must carry the warning border");
 
+// Countdown rounding: the last minute before a boundary must read "1 min", never
+// "0 min", on either seat.
+freeze("2026-09-11T03:59:31Z"); // 29 seconds before the 04:00 UTC close
+const cardLastMinute = render(CARD);
+check(cardLastMinute.includes("Termina en 1 min"), "the card must not count down to 0 min");
+check(!cardLastMinute.includes("0 min"), "the card must never show a zero countdown");
+
+freeze("2026-09-11T00:59:31Z"); // 29 seconds before the 01:00 UTC open
+const statsLastMinute = render(STATS);
+check(statsLastMinute.includes("(en 1 min)"), "the pill must not count down to 0 min");
+check(!statsLastMinute.includes("0 min"), "the pill must never show a zero countdown");
+
 Date.now = realNow;
 console.log(`ok — both seats rendered in both states (${checks} checks)`);

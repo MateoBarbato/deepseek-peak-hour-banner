@@ -19,7 +19,9 @@ Taken from the official pricing page ([api-docs.deepseek.com/quick_start/pricing
 
 Windows are always evaluated in UTC, because that is what the provider bills in. Local clock time is only displayed, never used for the decision.
 
-If DeepSeek ever changes the schedule, edit `PEAK_WINDOWS_UTC` in [`lib/client.js`](lib/client.js) (offsets in minutes from UTC midnight) and reinstall.
+The same page in Chinese states the rule on the Beijing clock — 北京时间周一至周五 9:00–12:00、14:00–18:00 — which describes the same instants (Beijing is UTC+8, with no daylight saving). The two wordings also agree on the weekday for these windows, since adding eight hours to a 01:00–10:00 UTC range never crosses midnight. [`test/rule.test.mjs`](test/rule.test.mjs) parses **both** sentences and checks that they, and the bundle, agree minute by minute across a full year.
+
+If DeepSeek ever changes the schedule, edit `PEAK_WINDOWS_UTC` in [`lib/client.js`](lib/client.js) (offsets in minutes from UTC midnight), update the quoted rule in [`test/rule.test.mjs`](test/rule.test.mjs), and reinstall.
 
 ## Requirements
 
@@ -66,6 +68,7 @@ dsh plugin --profile web remove @mateobarbato/dsh-client-ui-peak-hour
 | [`lib/index.js`](lib/index.js) | Host half: an empty `apply()`, present only so the row mounts in the host Loader tree. |
 | [`lib/client.js`](lib/client.js) | Browser half: a classic script registering one lazy factory on `window.__ModuleLoader__`. |
 | [`test/schedule.test.mjs`](test/schedule.test.mjs) | Schedule test: window edges, the Friday→Monday gap, and a minute-by-minute scan. |
+| [`test/rule.test.mjs`](test/rule.test.mjs) | Rule conformance: both published wordings parsed and compared against the bundle minute by minute for a year. |
 | [`test/render.test.mjs`](test/render.test.mjs) | Render test: both seats server-rendered with real React under a frozen clock, one per state. |
 
 Four contracts make this a plugin rather than a fork:
@@ -83,7 +86,7 @@ Four contracts make this a plugin rather than a fork:
 
 ```sh
 npm install    # react + react-dom, used only by the render test
-npm test       # schedule logic + both seats rendered in both states
+npm test       # rule conformance + schedule + both seats rendered in both states
 ```
 
 The browser half has no build step: `lib/client.js` is committed as-is. A linked install picks edits up on save — the host's client-HMR poll reloads the browser bundle within a second, and a page reload is the fallback. Only a change to [`cordis.patch.yml`](cordis.patch.yml) needs a restart, because bundle layers are composed at boot.
