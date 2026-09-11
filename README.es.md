@@ -9,6 +9,12 @@ Plugin del GUI web de [DeepSeek Harness](https://github.com/deepseek-ai/deepseek
 
 Nunca se renderizan los dos a la vez, y cada uno cambia de estado solo en el siguiente límite UTC: la tarjeta aparece sobre el compositor exactamente mientras el proveedor cobra tarifa pico, y el resto del tiempo el horario espera discreto en el pie.
 
+El hueco de viernes a lunes no tiene ninguna ventana pico y llega a 63 horas, así que cuando la próxima ventana ya no es hoy la pastilla nombra el día y cuenta en días — si no, `22:00 local` al lado de un contador de 60 horas se lee como un bug:
+
+```
+✓ Fuera de hora pico · próxima dom 22:00 local (en 2 d 12 h)
+```
+
 Los textos son literales en [`lib/client.js`](lib/client.js) y vienen en español.
 
 [English](README.md) | Español

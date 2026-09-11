@@ -9,6 +9,12 @@ A [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) web-GUI pl
 
 Only one seat renders at a time, and each flips on its own at the next UTC boundary: the card sits above the composer exactly while the provider bills peak rates, and the schedule waits quietly in the footer the rest of the time.
 
+The Friday-to-Monday gap holds no peak window at all and runs up to 63 hours, so once the next window is no longer today the pill names the day and counts in days — otherwise `22:00 local` next to a 60-hour countdown reads like a bug:
+
+```
+✓ Fuera de hora pico · próxima dom 22:00 local (en 2 d 12 h)
+```
+
 Both strings are plain literals in [`lib/client.js`](lib/client.js) and ship in Spanish; edit them to localize.
 
 English | [Español](README.es.md)

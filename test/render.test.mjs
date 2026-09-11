@@ -5,11 +5,16 @@
  * `apply` against a stub slot service, and server-renders both seats with real
  * React under a frozen clock — one render per state.
  *
+ * The local zone is pinned (Argentina, UTC-3 with no daylight saving) so the
+ * assertions about local clock stamps and weekday prefixes hold anywhere.
+ *
  * Run: npm test
  */
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import assert from "node:assert/strict";
+
+process.env.TZ = "America/Argentina/Buenos_Aires";
 
 const require = createRequire(import.meta.url);
 const React = require("react");
@@ -80,13 +85,26 @@ const cardOff = render(CARD);
 const statsOff = render(STATS);
 check(cardOff === "", "the card must not render off-peak");
 check(statsOff.includes('data-dsh-peak-hour="off-peak"'), "the stats seat must mark off-peak");
-check(statsOff.includes("Fuera de hora pico"), "the stats seat must state the off-peak rate");
+// Assert whole sentences, so a duplicated or dropped fragment cannot pass on a
+// substring match.
 check(
-	statsOff.includes(`próxima ${localClock("2026-09-11T01:00:00Z")} local`),
+	statsOff.includes(`Fuera de hora pico · próxima ${localClock("2026-09-11T01:00:00Z")} local (en 1 h 53 min)`),
 	"the stats seat must show the next peak in local time"
 );
-check(/en 1 h 5[0-9] min/.test(statsOff), "the stats seat must count down to the next peak");
+check(!statsOff.includes("local local"), "the stats seat must not repeat the local suffix");
 check(statsOff.includes("max-width:var(--dsh-chat-content-width"), "the stats row must use the chat column width");
+
+// Weekend gap: Friday 12:11 UTC, after the last Friday window. The next peak is
+// Monday 01:00 UTC — Sunday 22:00 local — so the pill must name the day and
+// count in days, or "22:00 local" reads as tonight next to a 60-hour countdown.
+freeze("2026-09-11T12:11:00Z");
+const statsGap = render(STATS);
+check(
+	statsGap.includes("Fuera de hora pico · próxima dom 22:00 local (en 2 d 12 h)"),
+	"the pill must name the weekday and count in days across the weekend gap"
+);
+check(!statsGap.includes("local local"), "the pill must not repeat the local suffix");
+check(!/en 60 h/.test(statsGap), "the pill must not report a bare hour count beyond a day");
 
 // Peak: Friday 02:55 UTC (inside the 01:00-04:00 window, 65 minutes left). The
 // card renders above the composer; the stats seat steps aside.
@@ -98,11 +116,22 @@ check(cardPeak.includes('data-dsh-peak-hour="peak"'), "the card must mark peak")
 check(cardPeak.includes("HORA PICO"), "the card must warn about peak rates");
 check(cardPeak.includes("Termina en 1 h 5"), "the card must count down to the end of the window");
 check(cardPeak.includes("04:00 UTC"), "the card must state the UTC end of the window");
+check(cardPeak.includes("vie 01:00 local"), "the card must name the weekday when the window ends on another local day");
 check(
 	cardPeak.includes("max-width:calc(var(--dsh-composer-card-max-width"),
 	"the card must copy the composer dock width"
 );
 check(cardPeak.includes("--dsw-alias-state-warn-primary"), "the card must carry the warning border");
+
+// The mirror rule: a window that ends on the same local day must stay undecorated.
+// Monday 07:00 UTC is 04:00 local and the 06:00-10:00 UTC window ends 07:00 local.
+freeze("2026-09-14T07:00:00Z");
+const cardSameDay = render(CARD);
+check(
+	cardSameDay.includes("10:00 UTC / 07:00 local"),
+	"the card must omit the weekday when the window ends today"
+);
+check(!/lun 07:00 local/.test(cardSameDay), "the card must not name today's weekday");
 
 // Countdown rounding: the last minute before a boundary must read "1 min", never
 // "0 min", on either seat.
